@@ -40,7 +40,7 @@ fn find_three_numbers_adding_to(numbers: &Vec<i32>, sum: i32) -> Option<(i32, i3
 
 fn day01_problem01() -> Result<(), Error> {
     let numbers =
-        read_numbers_from_file("./src/input01").expect("Could not find or parse the input file");
+        read_numbers_from_file("./inputs/day01_1").expect("Could not find or parse the input file");
     let result01 = find_two_numbers_adding_to(&numbers, 2020).unwrap();
     println!("Problem1: {:?}", result01.0 * result01.1);
     let result02 = find_three_numbers_adding_to(&numbers, 2020).unwrap();
