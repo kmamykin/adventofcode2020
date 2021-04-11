@@ -1,7 +1,6 @@
 mod problems;
-use problems::day01::day01_problem01;
-use std::io::Error;
+use problems::*;
 
-fn main() -> Result<(), Error> {
-    day01_problem01()
+fn main() {
+    day02::day02()
 }
