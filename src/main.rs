@@ -1,6 +1,8 @@
 mod problems;
+mod utils;
+
 use problems::*;
 
 fn main() {
-    day02::day02()
+    day03::day03()
 }
