@@ -3,19 +3,44 @@ use itertools::Itertools;
 use regex::Regex;
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, PartialEq)]
-struct Passport {
-    statements: Vec<(String, String)>,
+trait ValueValidator {
+    fn is_valid(&self, maybe_value: Option<&str>) -> bool;
+}
+struct AnythingGoesRule {}
+impl ValueValidator for AnythingGoesRule {
+    fn is_valid(&self, _: Option<&str>) -> bool {
+        true
+    }
+}
+fn is_anything() -> Box<dyn ValueValidator> {
+    Box::new(AnythingGoesRule {})
 }
 
-fn is_year_in_range(from_year: i32, to_year: i32) -> impl Fn(Option<&str>) -> bool {
-    let year_regex = Regex::new(r"^(\d{4})$").unwrap();
-    move |maybe_value: Option<&str>| {
+struct MatchingRegexRule {
+    regex: Regex,
+}
+impl ValueValidator for MatchingRegexRule {
+    fn is_valid(&self, maybe_value: Option<&str>) -> bool {
+        maybe_value.map_or(false, |s| self.regex.captures(s).is_some())
+    }
+}
+fn is_matching_regex(re: &str) -> Box<dyn ValueValidator> {
+    let regex = Regex::new(re).unwrap();
+    Box::new(MatchingRegexRule { regex })
+}
+
+struct YearInRangeRule {
+    from_year: i32,
+    to_year: i32,
+    year_regex: Regex,
+}
+impl ValueValidator for YearInRangeRule {
+    fn is_valid(&self, maybe_value: Option<&str>) -> bool {
         maybe_value.map_or(false, |s| {
-            year_regex.captures(s).map_or(false, |cap| {
+            self.year_regex.captures(s).map_or(false, |cap| {
                 cap.get(1).map_or(false, |digits| {
                     let year = digits.as_str().parse::<i32>().unwrap();
-                    if year >= from_year && year <= to_year {
+                    if year >= self.from_year && year <= self.to_year {
                         true
                     } else {
                         false
@@ -25,9 +50,20 @@ fn is_year_in_range(from_year: i32, to_year: i32) -> impl Fn(Option<&str>) -> bo
         })
     }
 }
-fn is_height() -> impl Fn(Option<&str>) -> bool {
-    let regex = Regex::new(r"^(\d+)(cm|in)$").unwrap();
-    move |maybe_value: Option<&str>| {
+fn is_year_in_range(from_year: i32, to_year: i32) -> Box<dyn ValueValidator> {
+    let year_regex = Regex::new(r"^(\d{4})$").unwrap();
+
+    Box::new(YearInRangeRule {
+        from_year,
+        to_year,
+        year_regex,
+    })
+}
+
+struct HeightRule {}
+impl ValueValidator for HeightRule {
+    fn is_valid(&self, maybe_value: Option<&str>) -> bool {
+        let regex = Regex::new(r"^(\d+)(cm|in)$").unwrap();
         maybe_value.map_or(false, |s| {
             regex.captures(s).map_or(false, |cap| {
                 cap.get(1).map_or(false, |digits| {
@@ -54,54 +90,58 @@ fn is_height() -> impl Fn(Option<&str>) -> bool {
         })
     }
 }
-
-fn is_matching_regex(re: &str) -> impl Fn(Option<&str>) -> bool {
-    let regex = Regex::new(re).unwrap();
-    move |maybe_value: Option<&str>| maybe_value.map_or(false, |s| regex.captures(s).is_some())
+fn is_height() -> Box<dyn ValueValidator> {
+    Box::new(HeightRule {})
 }
 
-fn is_anything() -> impl Fn(Option<&str>) -> bool {
-    move |maybe_value: Option<&str>| true
+struct PassportValidator {
+    rules: HashMap<&'static str, Box<dyn ValueValidator>>,
 }
-
-struct PassportValidator {}
 impl PassportValidator {
+    fn new() -> Self {
+        let mut rules = HashMap::<&'static str, Box<dyn ValueValidator>>::new();
+        // byr (Birth Year) - four digits; at least 1920 and at most 2002.
+        rules.insert("byr", is_year_in_range(1920, 2002));
+        // iyr (Issue Year) - four digits; at least 2010 and at most 2020.
+        rules.insert("iyr", is_year_in_range(2010, 2020));
+        // eyr (Expiration Year) - four digits; at least 2020 and at most 2030
+        rules.insert("eyr", is_year_in_range(2010, 2030));
+
+        // hgt (Height) - a number followed by either cm or in:
+        // If cm, the number must be at least 150 and at most 193.
+        //     If in, the number must be at least 59 and at most 76.
+        rules.insert("hgt", is_height());
+        // hcl (Hair Color) - a # followed by exactly six characters 0-9 or a-f.
+        rules.insert("hcl", is_matching_regex(r"^\#[0-9a-f]{6}$"));
+        // ecl (Eye Color) - exactly one of: amb blu brn gry grn hzl oth.
+        rules.insert("ecl", is_matching_regex(r"^amb|blu|brn|gry|grn|hzl|oth$"));
+        // pid (Passport ID) - a nine-digit number, including leading zeroes.
+        rules.insert("pid", is_matching_regex(r"^\d{9}$"));
+        //"cid" => is_anything()(value),
+        rules.insert("cid", is_anything());
+        Self { rules }
+    }
+
     fn is_field_valid(&self, field: &str, value: Option<&str>) -> bool {
-        match field {
-            // byr (Birth Year) - four digits; at least 1920 and at most 2002.
-            "byr" => is_year_in_range(1920, 2002)(value),
-            // iyr (Issue Year) - four digits; at least 2010 and at most 2020.
-            "iyr" => is_year_in_range(2010, 2020)(value),
-            // eyr (Expiration Year) - four digits; at least 2020 and at most 2030
-            "eyr" => is_year_in_range(2010, 2030)(value),
-            // hgt (Height) - a number followed by either cm or in:
-            // If cm, the number must be at least 150 and at most 193.
-            //     If in, the number must be at least 59 and at most 76.
-            "hgt" => is_height()(value),
-            // hcl (Hair Color) - a # followed by exactly six characters 0-9 or a-f.
-            "hcl" => is_matching_regex(r"^\#[0-9a-f]{6}$")(value),
-            // ecl (Eye Color) - exactly one of: amb blu brn gry grn hzl oth.
-            "ecl" => is_matching_regex(r"^amb|blu|brn|gry|grn|hzl|oth$")(value),
-            // pid (Passport ID) - a nine-digit number, including leading zeroes.
-            "pid" => is_matching_regex(r"^\d{9}$")(value),
-            "cid" => is_anything()(value),
-            _ => true,
-        }
+        self.rules
+            .get(field)
+            .map_or(true, |rule| rule.is_valid(value))
     }
 
     fn is_valid(&self, passport: &Passport) -> bool {
-        let passport_keys = vec!["byr", "iyr", "eyr", "hgt", "hcl", "ecl", "pid", "cid"];
-        let all_keys_valid = passport_keys
-            .iter()
+        self.rules
+            .keys()
             .map(|&key| self.is_field_valid(key, passport.get(key)))
-            .all(|v| v);
-        all_keys_valid
+            .all(|v| v)
     }
 }
 
-impl Passport {
-    const RULES: i32 = 543;
+#[derive(Debug, Clone, PartialEq)]
+struct Passport {
+    statements: Vec<(String, String)>,
+}
 
+impl Passport {
     fn from_statements(ss: &Vec<&str>) -> Passport {
         let statements = ss
             .iter()
@@ -116,10 +156,11 @@ impl Passport {
     fn get(&self, key: &str) -> Option<&str> {
         self.statements
             .iter()
-            .find(|(k, v)| k == key)
-            .map(|(_, v)| &v[..])
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| &v[..]) // convert String to slice
     }
 }
+
 fn parse_strings_into_passports(strings: &Vec<String>) -> Vec<Passport> {
     strings
         .iter()
@@ -142,8 +183,9 @@ fn parse_strings_into_passports(strings: &Vec<String>) -> Vec<Passport> {
         .map(|vs| Passport::from_statements(&vs))
         .collect()
 }
+
 pub fn solve() {
-    let validator = PassportValidator {};
+    let validator = PassportValidator::new();
     // byr
     assert!(!validator.is_field_valid("byr", None));
     assert!(!validator.is_field_valid("byr", Some("asdf")));
