@@ -17,23 +17,21 @@ pub fn solve() {
     println!("{:?}", rules);
 
     let graph = build_graph(&rules);
-    let shiny_gold = find_node_in_graph(&graph, "shiny gold");
+    let shiny_gold = find_node_in_graph(&graph, "shiny gold").unwrap();
     println!("{:?}", shiny_gold);
-    let parents = find_all_parents_of_node(&graph, &shiny_gold.unwrap());
+    let parents = find_all_parents_of_node(&graph, &shiny_gold);
     println!("{:?}: {:?}", parents.len(), parents);
 }
 
-fn find_all_parents_of_node(graph: &RulesGraph, node: &VertexId) -> Vec<VertexId> {
-    let mut queue: Vec<VertexId> = Vec::new();
-    let mut parents: HashSet<VertexId> = HashSet::new();
-    queue.push(node.to_owned());
+fn find_all_parents_of_node<'a>(graph: &'a RulesGraph, node: &'a VertexId) -> Vec<&'a VertexId> {
+    let mut queue: Vec<&VertexId> = Vec::new();
+    let mut parents: HashSet<&VertexId> = HashSet::new();
+    queue.push(node);
     while let Some(v) = queue.pop() {
-        if v != *node {
+        if v != node {
             parents.insert(v);
         }
-        graph
-            .in_neighbors(&v)
-            .for_each(|&v| queue.push(v.to_owned()));
+        graph.in_neighbors(v).for_each(|v| queue.push(v));
     }
     parents.into_iter().collect()
 }
