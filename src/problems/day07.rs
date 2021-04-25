@@ -9,6 +9,11 @@ type RulesGraph = Graph<String>;
 
 pub fn solve() {
     let strings = read_strings_from_file("./inputs/day07_1").expect("Failed to read inputs");
+    println!("Problem 1: {:?}", problem_1(&strings));
+    println!("Problem 2: {:?}", problem_2(&strings));
+}
+
+pub fn problem_1(strings: &Vec<String>) -> usize {
     let rules: Vec<(String, Vec<(usize, String)>)> = strings
         .iter()
         .map(|s| parse_rule(s).unwrap())
@@ -21,6 +26,25 @@ pub fn solve() {
     println!("{:?}", shiny_gold);
     let parents = find_all_parents_of_node(&graph, &shiny_gold);
     println!("{:?}: {:?}", parents.len(), parents);
+    parents.len()
+}
+
+pub fn problem_2(strings: &Vec<String>) -> usize {
+    let rules: Vec<(String, Vec<(usize, String)>)> = strings
+        .iter()
+        .map(|s| parse_rule(s).unwrap())
+        .map(|(s, v)| (s.to_string(), parse_contained_bags(v)))
+        .collect();
+
+    let graph = build_graph(&rules);
+    let shiny_gold = find_node_in_graph(&graph, "shiny gold").unwrap();
+    let n_bags: usize = calculate_number_of_bags(&graph, &shiny_gold);
+    n_bags
+}
+
+fn calculate_number_of_bags(graph: &RulesGraph, node: &VertexId) -> usize {
+    // if no children return 1
+    // if children, for each child return sum(weight * calculate_number_of_bags(child))
 }
 
 fn find_all_parents_of_node<'a>(graph: &'a RulesGraph, node: &'a VertexId) -> Vec<&'a VertexId> {
@@ -116,5 +140,19 @@ mod unit_tests {
             ],
             parse_contained_bags(" 2 clear indigo bags, 3 light lime bags.")
         )
+    }
+
+    #[test]
+    fn test_problem_2() {
+        let strings = vec![
+            "shiny gold bags contain 2 dark red bags.".to_string(),
+            "dark red bags contain 2 dark orange bags.".to_string(),
+            "dark orange bags contain 2 dark yellow bags.".to_string(),
+            "dark yellow bags contain 2 dark green bags.".to_string(),
+            "dark green bags contain 2 dark blue bags.".to_string(),
+            "dark blue bags contain 2 dark violet bags.".to_string(),
+            "dark violet bags contain no other bags.".to_string(),
+        ];
+        assert_eq!(126, problem_2(&strings));
     }
 }
