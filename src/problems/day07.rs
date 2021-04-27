@@ -39,12 +39,29 @@ pub fn problem_2(strings: &Vec<String>) -> usize {
     let graph = build_graph(&rules);
     let shiny_gold = find_node_in_graph(&graph, "shiny gold").unwrap();
     let n_bags: usize = calculate_number_of_bags(&graph, &shiny_gold);
-    n_bags
+    n_bags - 1 // -1 is because shiny_gold is not counted, we calculate the n of *other* bagsr
 }
 
 fn calculate_number_of_bags(graph: &RulesGraph, node: &VertexId) -> usize {
     // if no children return 1
     // if children, for each child return sum(weight * calculate_number_of_bags(child))
+    let children: Vec<&VertexId> = graph.out_neighbors(node).collect();
+    let node_label = graph.fetch(node).cloned().unwrap();
+    if children.len() == 0 {
+        println!("{:?} -> 1", node_label);
+        return 1;
+    } else {
+        let node_bags: usize = children.iter()
+            .map(|&child| {
+                let child_weight = (graph.weight(node, child).unwrap() * 100.0) as usize;
+                let child_capacity = calculate_number_of_bags(&graph, child);
+                println!("{:?} -> {:?}*{:?}", node_label, child_weight, child_capacity);
+                child_weight * child_capacity
+            })
+            .sum();
+        println!("{:?} = {:?}", node_label, node_bags + 1);
+        return node_bags + 1;
+    }
 }
 
 fn find_all_parents_of_node<'a>(graph: &'a RulesGraph, node: &'a VertexId) -> Vec<&'a VertexId> {
@@ -81,10 +98,8 @@ fn build_graph(rules: &Vec<(String, Vec<(usize, String)>)>) -> RulesGraph {
         let id1 = upsert_node(&mut graph, p);
         for (w, ch) in chs.iter() {
             let id2 = upsert_node(&mut graph, ch);
-            graph.add_edge(&id1, &id2);
-            // if p == "shiny gold" || ch == "shiny gold" {
-            //     println!("Building {:?}: {:?}, {:?}", p, chs, graph.has_edge(&id1, &id2));
-            // }
+            // println!("Weight: {:?}, {:?}", (*w as f32)/100.0, *w as f32);
+            graph.add_edge_with_weight(&id1, &id2, (*w as f32)/100.0).expect("Could not add the edge");
         }
     }
     graph
