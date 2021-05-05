@@ -1,18 +1,21 @@
 use super::super::utils::{parse_as, read_strings_from_file};
 
 pub fn solve() {
-    let strings = read_strings_from_file("./inputs/day09_1").expect("Failed to read inputs");
+    let strings = read_strings_from_file("./inputs/day10_1").expect("Failed to read inputs");
     println!("Problem 1: {:?}", problem_1(&strings));
     println!("Problem 2: {:?}", problem_2(&strings));
 }
 
 pub fn problem_1(strings: &Vec<String>) -> u64 {
+    println!("{:?}", strings);
     1
 }
 
 pub fn problem_2(strings: &Vec<String>) -> u64 {
+    println!("{:?}", strings);
     2
 }
+
 #[cfg(test)]
 mod tests {
     use super::*;
