@@ -5,5 +5,5 @@ mod utils;
 use problems::*;
 
 fn main() {
-    day08::solve()
+    day09::solve()
 }
